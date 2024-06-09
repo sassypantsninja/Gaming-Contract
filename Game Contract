@@ -1,0 +1,64 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+contract SimpleGame {
+    address public owner;
+    uint256 public gameFee = 0.01 ether; // Fee to join the game
+    uint256 public rewardAmount = 0.05 ether; // Reward for winning a round
+
+    mapping(address => uint256) public playerScores;
+    mapping(address => bool) public isPlayer;
+
+    event GameJoined(address indexed player);
+    event RoundPlayed(address indexed player, uint256 score, bool won);
+    event RewardClaimed(address indexed player, uint256 reward);
+
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Not the contract owner");
+        _;
+    }
+
+    constructor() {
+        owner = msg.sender;
+    }
+
+    // Function to join the game
+    function joinGame() public payable {
+        require(msg.value == gameFee, "Incorrect game fee");
+        require(!isPlayer[msg.sender], "Already joined the game");
+
+        isPlayer[msg.sender] = true;
+        emit GameJoined(msg.sender);
+    }
+
+    // Function to play a round
+    function playRound(uint256 playerInput) public {
+        require(isPlayer[msg.sender], "Not a registered player");
+
+        uint256 score = uint256(keccak256(abi.encodePacked(block.timestamp, msg.sender, playerInput))) % 100;
+        bool won = score > 50;
+
+        playerScores[msg.sender] += score;
+
+        if (won) {
+            payable(msg.sender).transfer(rewardAmount);
+            emit RewardClaimed(msg.sender, rewardAmount);
+        }
+
+        emit RoundPlayed(msg.sender, score, won);
+    }
+
+    // Function to fund the contract
+    function fundContract() public payable onlyOwner {
+        require(msg.value > 0, "Must send some ether");
+    }
+
+    // Function to withdraw funds (only owner)
+    function withdraw(uint256 amount) public onlyOwner {
+        require(address(this).balance >= amount, "Insufficient balance");
+        payable(owner).transfer(amount);
+    }
+
+    // Fallback function to receive ether
+    receive() external payable {}
+}

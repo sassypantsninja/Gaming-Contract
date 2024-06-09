@@ -1,0 +1,40 @@
+const Web3 = require('web3');
+require('dotenv').config();
+
+const web3 = new Web3(new Web3.providers.HttpProvider(process.env.INFURA_URL));
+
+const account = web3.eth.accounts.privateKeyToAccount(process.env.PRIVATE_KEY);
+web3.eth.accounts.wallet.add(account);
+
+const contractAddress = 'DEPLOYED_CONTRACT_ADDRESS';
+const abi = JSON.parse('YOUR_CONTRACT_ABI');
+const contract = new web3.eth.Contract(abi, contractAddress);
+
+(async () => {
+    // Join the game
+    const joinTx = contract.methods.joinGame();
+    let gas = await joinTx.estimateGas({ from: account.address, value: web3.utils.toWei('0.01', 'ether') });
+    let gasPrice = await web3.eth.getGasPrice();
+
+    await joinTx.send({
+        from: account.address,
+        gas,
+        gasPrice,
+        value: web3.utils.toWei('0.01', 'ether')
+    });
+
+    console.log('Joined the game');
+
+    // Play a round
+    const playTx = contract.methods.playRound(42);
+    gas = await playTx.estimateGas({ from: account.address });
+    gasPrice = await web3.eth.getGasPrice();
+
+    await playTx.send({
+        from: account.address,
+        gas,
+        gasPrice,
+    });
+
+    console.log('Played a round');
+})();

@@ -1,0 +1,66 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/Counters.sol";
+
+contract WildForestGame is ERC20, ERC721, Ownable {
+    using Counters for Counters.Counter;
+    Counters.Counter private _tokenIds;
+    
+    struct Wildlife {
+        string species;
+        uint256 level;
+        uint256 lastInteractionTime;
+    }
+
+    mapping(uint256 => Wildlife) public wildlife;
+    uint256 public upgradeCost = 50 * 10 ** 18; // 50 tokens
+
+    event WildlifeMinted(address owner, uint256 tokenId, string species);
+    event WildlifeUpgraded(address owner, uint256 tokenId, uint256 newLevel);
+
+    constructor(uint256 initialSupply) 
+        ERC20("ForestToken", "FRT") 
+        ERC721("WildlifeNFT", "WLN") 
+    {
+        _mint(msg.sender, initialSupply);
+    }
+
+    function mintWildlife(address to, string memory species) public onlyOwner {
+        uint256 newTokenId = _tokenIds.current();
+        _tokenIds.increment();
+        
+        _mint(to, newTokenId);
+        wildlife[newTokenId] = Wildlife({
+            species: species,
+            level: 1,
+            lastInteractionTime: block.timestamp
+        });
+        
+        emit WildlifeMinted(to, newTokenId, species);
+    }
+
+    function upgradeWildlife(uint256 tokenId) public {
+        require(ownerOf(tokenId) == msg.sender, "You do not own this wildlife");
+        require(balanceOf(msg.sender) >= upgradeCost, "Insufficient tokens to upgrade");
+
+        _burn(msg.sender, upgradeCost);
+        wildlife[tokenId].level += 1;
+        wildlife[tokenId].lastInteractionTime = block.timestamp;
+
+        emit WildlifeUpgraded(msg.sender, tokenId, wildlife[tokenId].level);
+    }
+
+    function setUpgradeCost(uint256 newCost) public onlyOwner {
+        upgradeCost = newCost;
+    }
+
+    function getWildlifeDetails(uint256 tokenId) public view returns (string memory species, uint256 level, uint256 lastInteractionTime) {
+        require(_exists(tokenId), "Wildlife does not exist");
+        Wildlife memory wl = wildlife[tokenId];
+        return (wl.species, wl.level, wl.lastInteractionTime);
+    }
+}
